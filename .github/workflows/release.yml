@@ -1,0 +1,83 @@
+name: Release
+
+# Push a tag like v1.0.0 to build Windows binaries and publish a GitHub Release.
+#   git tag v1.0.0 && git push origin v1.0.0
+# You can also run it manually from the Actions tab to get the binaries as
+# workflow artifacts without publishing a release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (windows/${{ matrix.arch }})
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # Tests run natively on the amd64 leg only (arm64 binaries can't run on
+      # the amd64 runner).
+      - name: Test
+        if: matrix.arch == 'amd64'
+        run: go test ./...
+
+      - name: Build pathwise.exe
+        shell: bash
+        env:
+          GOOS: windows
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: "0" # modernc.org/sqlite is pure Go
+        run: |
+          mkdir -p dist/stage
+          go build -trimpath -ldflags "-s -w" -o dist/stage/pathwise.exe .
+          cp README.md LICENSE dist/stage/
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $name = "pathwise_${{ github.ref_name }}_windows_${{ matrix.arch }}"
+          if ("${{ github.ref_type }}" -ne "tag") { $name = "pathwise_dev_windows_${{ matrix.arch }}" }
+          Compress-Archive -Path dist/stage/* -DestinationPath "dist/$name.zip"
+          Copy-Item dist/stage/pathwise.exe "dist/pathwise_windows_${{ matrix.arch }}.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+          path: |
+            dist/*.zip
+            dist/*.exe
+
+  release:
+    name: publish release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum *.zip *.exe > checksums.txt
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" dist/* \
+            --repo "${{ github.repository }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes
