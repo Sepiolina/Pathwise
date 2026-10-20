@@ -4,7 +4,7 @@
 
 **Analyze, optimize and safely roll back your Windows `PATH`.**
 
-[![CI](https://github.com/<your-org>/pathwise/actions/workflows/ci.yml/badge.svg)](https://github.com/Sepiolina/pathwise/actions/workflows/ci.yml)
+[![CI](https://github.com/Sepiolina/pathwise/actions/workflows/ci.yml/badge.svg)](https://github.com/Sepiolina/pathwise/actions/workflows/ci.yml)
 ![Go](https://img.shields.io/badge/go-1.26%2B-00ADD8?logo=go&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
